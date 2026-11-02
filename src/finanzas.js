@@ -198,4 +198,11 @@ api('POST', 'pages', {
   },
 });
 
-showToast('✅ Guardado: ' + mov.tipo.toLowerCase() + ' de ' + euros(mov.importe));
+// Mensaje final con el saldo actualizado de la cuenta
+let aviso = '✅ Guardado: ' + mov.tipo.toLowerCase() + ' de ' + euros(mov.importe);
+try {
+  const cuenta = api('GET', 'pages/' + mov.cuenta);
+  const saldo = cuenta.properties.Saldo.formula.number;
+  aviso += '\n' + titulo(cuenta) + ': ' + euros(saldo || 0);
+} catch (e) { /* si falla esto, el movimiento ya está guardado */ }
+showToast(aviso);
