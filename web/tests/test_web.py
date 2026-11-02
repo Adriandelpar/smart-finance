@@ -207,3 +207,12 @@ def test_error_de_notion_muestra_ayuda():
     r = app.test_client().get("/")
     assert r.status_code == 502
     assert "Conexiones" in r.data.decode()
+
+
+def test_misma_clave_de_sesion_en_todos_los_workers():
+    # cada worker de gunicorn crea su propia app: la clave tiene que coincidir
+    a = create_app({"NOTION_TOKEN": "", "APP_PASSWORD": "secreta", "SECRET_KEY": ""})
+    b = create_app({"NOTION_TOKEN": "", "APP_PASSWORD": "secreta", "SECRET_KEY": ""})
+    assert a.config["SECRET_KEY"] == b.config["SECRET_KEY"]
+    c = create_app({"NOTION_TOKEN": "", "APP_PASSWORD": "otra", "SECRET_KEY": ""})
+    assert c.config["SECRET_KEY"] != a.config["SECRET_KEY"]

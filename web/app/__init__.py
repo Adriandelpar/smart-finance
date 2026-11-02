@@ -1,4 +1,5 @@
 """Smart Finance — panel web para revisar los datos de Notion."""
+import hashlib
 import hmac
 import os
 import re
@@ -22,11 +23,18 @@ def create_app(config=None):
         NOTION_TOKEN=os.environ.get("NOTION_TOKEN", "").strip(),
         # Contraseña opcional: en local no hace falta; si la web se publica, sí.
         APP_PASSWORD=os.environ.get("APP_PASSWORD", ""),
-        SECRET_KEY=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
+        SECRET_KEY=os.environ.get("SECRET_KEY", ""),
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
     )
     app.config.update(config or {})
+    if not app.config["SECRET_KEY"]:
+        # gunicorn arranca varios procesos (workers) y cada uno llama a create_app():
+        # una clave aleatoria sería distinta en cada uno y la sesión se perdería al
+        # cambiar de worker. Derivarla de la contraseña da la misma en todos.
+        clave = app.config["APP_PASSWORD"]
+        app.config["SECRET_KEY"] = (hashlib.sha256(f"smart-finance:{clave}".encode()).hexdigest()
+                                    if clave else secrets.token_hex(32))
     app.jinja_env.filters["euros"] = euros
 
     # Sin token -> modo demo con datos de ejemplo
