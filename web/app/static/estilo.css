@@ -1,0 +1,310 @@
+/* Smart Finance — una libreta de ahorro para mirar de un vistazo */
+
+/* Fuente incluida en el proyecto (licencia OFL): la web no depende de nadie de fuera */
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("fuentes/schibsted-grotesk-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("fuentes/schibsted-grotesk-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("fuentes/schibsted-grotesk-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("fuentes/schibsted-grotesk-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Schibsted Grotesk";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("fuentes/schibsted-grotesk-latin-800-normal.woff2") format("woff2");
+}
+
+:root {
+  --papel: #e8edf1;
+  --papel-2: #dde4ea;
+  --tinta: #16243a;
+  --tinta-suave: #556377;
+  --linea: #c3ccd5;
+  --cobalto: #2b4bc0;
+  --ladrillo: #b0382c;
+  --ocre: #bc8a1f;
+  --tramo-1: #2b4bc0;
+  --tramo-2: #6f86d9;
+  --tramo-3: #a9b7e8;
+  --tramo-4: #d0d8f2;
+  --radio: 3px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --papel: #121b29;
+    --papel-2: #1a2537;
+    --tinta: #e4e9ef;
+    --tinta-suave: #93a0b3;
+    --linea: #2c3a4f;
+    --cobalto: #7d97f2;
+    --ladrillo: #ef7b6c;
+    --ocre: #e3b04b;
+    --tramo-1: #7d97f2;
+    --tramo-2: #5670c9;
+    --tramo-3: #3d539c;
+    --tramo-4: #2c3d73;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--papel);
+  color: var(--tinta);
+  font-family: "Schibsted Grotesk", system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+a:focus-visible, button:focus-visible, input:focus-visible {
+  outline: 2px solid var(--cobalto);
+  outline-offset: 3px;
+  border-radius: var(--radio);
+}
+
+.cifra { white-space: nowrap; font-weight: 600; }
+.positivo { color: var(--cobalto); }
+.negativo { color: var(--ladrillo); }
+.neutro { color: var(--tinta-suave); }
+
+/* ---------- barra superior ---------- */
+
+.barra {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 1.25rem 1rem;
+}
+.marca { font-weight: 800; text-decoration: none; letter-spacing: -0.01em; }
+.meses { display: flex; align-items: center; gap: 0.75rem; font-weight: 600; }
+.meses a, .meses .hueco {
+  display: inline-grid; place-items: center;
+  width: 2rem; height: 2rem;
+  text-decoration: none; font-size: 1.4rem; line-height: 1;
+  border-radius: 50%;
+}
+.meses a:hover { background: var(--papel-2); }
+.meses .hueco { visibility: hidden; }
+.acciones { justify-self: end; display: flex; gap: 0.75rem; align-items: center; }
+.aviso-demo {
+  font-size: 0.8rem; color: var(--ocre);
+  border: 1px solid currentColor; border-radius: 99px; padding: 0.1rem 0.6rem;
+}
+.boton-texto {
+  background: none; border: 0; padding: 0; font: inherit; font-size: 0.9rem;
+  color: var(--tinta-suave); cursor: pointer; text-decoration: underline;
+}
+
+main { max-width: 72rem; margin: 0 auto; padding: 0 1rem 3rem; }
+
+/* ---------- saldo ---------- */
+
+.saldo { padding: 2.5rem 0 2rem; }
+.saldo h1 {
+  margin: 0 0 1.5rem;
+  font-size: clamp(2.2rem, 7vw, 4.5rem);
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+}
+.saldo h1 .cifra { font-weight: 800; }
+
+.reparto {
+  display: flex; gap: 3px;
+  height: 0.9rem;
+  border-radius: var(--radio);
+  overflow: hidden;
+  background: var(--papel-2);
+}
+.tramo { flex-basis: 0; min-width: 4px; }
+.t1 { background: var(--tramo-1); }
+.t2 { background: var(--tramo-2); }
+.t3 { background: var(--tramo-3); }
+.t4, .t5, .t6 { background: var(--tramo-4); }
+
+.cuentas {
+  list-style: none; margin: 1rem 0 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 0.5rem 2rem;
+}
+.cuentas li { display: flex; align-items: center; gap: 0.5rem; }
+.cuentas .nombre { color: var(--tinta-suave); }
+.punto { width: 0.6rem; height: 0.6rem; border-radius: 2px; }
+
+/* ---------- balance del mes ---------- */
+
+.balance {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline;
+  gap: 0.5rem 2rem;
+  padding: 1.25rem 0;
+  border-top: 1px solid var(--linea);
+  border-bottom: 1px solid var(--linea);
+  font-size: 1.1rem;
+}
+section.balance { margin-top: 0; }
+.balance p { margin: 0; max-width: 60ch; }
+.balance .neto { font-weight: 600; }
+
+/* ---------- columnas ---------- */
+
+.columnas {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 3rem;
+  margin-top: 2.5rem;
+}
+section + section { margin-top: 2.75rem; }
+h2 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 1rem; }
+.vacio { color: var(--tinta-suave); margin: 0; }
+.nota { margin: 0.3rem 0 0; font-size: 0.875rem; color: var(--tinta-suave); }
+.de { font-weight: 400; color: var(--tinta-suave); }
+.fila { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+
+/* ---------- categorías: la parte importante ---------- */
+
+.categorias { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; }
+.pista {
+  position: relative;
+  height: 0.65rem;
+  margin-top: 0.4rem;
+  background: var(--papel-2);
+  border-radius: var(--radio);
+}
+.barra-gasto, .barra-pagado {
+  display: block; height: 100%;
+  border-radius: var(--radio);
+  background: var(--tinta);
+  transform-origin: left;
+}
+.cerca .barra-gasto { background: var(--ocre); }
+.pasado .barra-gasto { background: var(--ladrillo); }
+.cerca .nota { color: var(--ocre); }
+.pasado .nota { color: var(--ladrillo); }
+.limite {
+  position: absolute; top: -0.3rem; bottom: -0.3rem;
+  width: 2px; margin-left: -1px;
+  background: var(--tinta);
+}
+.barra-pagado { background: var(--cobalto); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .barra-gasto { animation: crecer 700ms cubic-bezier(.2,.7,.2,1) both; }
+  .categorias li:nth-child(2) .barra-gasto { animation-delay: 40ms; }
+  .categorias li:nth-child(3) .barra-gasto { animation-delay: 80ms; }
+  .categorias li:nth-child(4) .barra-gasto { animation-delay: 120ms; }
+  .categorias li:nth-child(n+5) .barra-gasto { animation-delay: 160ms; }
+  @keyframes crecer { from { transform: scaleX(0); } }
+}
+
+/* ---------- movimientos ---------- */
+
+.movimientos { list-style: none; margin: 0; padding: 0; }
+.movimientos li {
+  display: grid;
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: baseline;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--linea);
+}
+.movimientos time { color: var(--tinta-suave); font-size: 0.9rem; }
+.detalle { display: flex; flex-direction: column; min-width: 0; }
+.concepto { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.donde { font-size: 0.85rem; color: var(--tinta-suave); }
+.mas summary {
+  cursor: pointer; padding: 0.75rem 0; color: var(--tinta-suave);
+  font-size: 0.9rem; list-style-position: inside;
+}
+.mas summary:hover { color: var(--tinta); }
+
+/* ---------- lateral ---------- */
+
+.resumen-pagos { margin: -0.25rem 0 1rem; color: var(--tinta-suave); }
+.resumen-pagos .cifra { color: var(--tinta); }
+.pagos { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--linea); }
+.pagos li {
+  position: relative;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0 1rem;
+  padding: 0.5rem 0 0.75rem 1.1rem;
+}
+.pagos li::before {
+  content: ""; position: absolute; left: -6px; top: 0.85rem;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--papel); border: 2px solid var(--tinta-suave);
+}
+.pagos .cuando { grid-column: 1 / -1; font-size: 0.8rem; color: var(--tinta-suave); }
+.pagos .pronto::before { border-color: var(--ocre); background: var(--ocre); }
+.pagos .pronto .cuando { color: var(--ocre); font-weight: 600; }
+
+.deudas { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem; }
+
+.pie {
+  max-width: 72rem; margin: 0 auto; padding: 1.5rem 1rem 2.5rem;
+  color: var(--tinta-suave); font-size: 0.85rem;
+  border-top: 1px solid var(--linea);
+}
+
+/* ---------- login ---------- */
+
+.login {
+  min-height: 100vh;
+  display: grid; place-items: center;
+  padding: 1rem;
+}
+.login form { width: min(22rem, 100%); }
+.login h1 { font-size: 2rem; letter-spacing: -0.03em; margin: 0 0 1.5rem; }
+.login label { display: block; font-weight: 600; margin-bottom: 0.4rem; }
+.login input {
+  width: 100%; font: inherit; padding: 0.7rem 0.8rem;
+  background: var(--papel-2); color: var(--tinta);
+  border: 1px solid var(--linea); border-radius: var(--radio);
+}
+.login button {
+  margin-top: 1rem; width: 100%;
+  font: inherit; font-weight: 700;
+  padding: 0.75rem; border: 0; border-radius: var(--radio);
+  background: var(--tinta); color: var(--papel); cursor: pointer;
+}
+.login .error { color: var(--ladrillo); margin: 0.75rem 0 0; }
+
+/* ---------- móvil ---------- */
+
+@media (max-width: 760px) {
+  .barra { grid-template-columns: 1fr auto; }
+  .meses { grid-column: 1 / -1; grid-row: 2; justify-content: center; }
+  .columnas { grid-template-columns: 1fr; gap: 0; }
+  .lateral { margin-top: 2.75rem; }
+  .saldo { padding-top: 1.5rem; }
+}
