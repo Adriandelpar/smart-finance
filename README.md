@@ -2,25 +2,36 @@
 
 ![CI](https://github.com/Adriandelpar/smart-finance/actions/workflows/ci.yml/badge.svg)
 
-Gestor de gastos personal. Registro cada gasto en segundos desde un botón del centro de control del móvil, y en Notion tengo el control de cuentas, gasto por categoría con presupuesto, suscripciones y deudas.
+Gestor de gastos personal. Registro cada gasto en segundos desde un botón del centro de control del móvil, y lo reviso en un panel web en el portátil: cuentas, gasto por categoría con presupuesto, suscripciones y deudas. Los datos viven en Notion.
+
+![Panel web en modo demo](docs/img/panel.png)
 
 ## Arquitectura
 
 ```
-┌─────────────────────────┐        HTTPS + Bearer token        ┌──────────────────────────┐
-│  Android (HyperOS)      │  ───────────────────────────────►  │   API REST de Notion     │
-│  HTTP Shortcuts         │   POST /databases/{id}/query       │                          │
-│  └─ src/finanzas.js     │   POST /pages                      │  Bases de datos:         │
-│     (cliente)           │   GET  /pages/{id}                 │  Movimientos, Cuentas,   │
-└─────────────────────────┘  ◄───────────────────────────────  │  Categorías,             │
-                                     JSON                      │  Suscripciones, Deudas   │
-                                                               └──────────────────────────┘
+ ┌───────────────────────┐                                 ┌──────────────────────────┐
+ │ Android (HyperOS)     │   POST /pages (crear)           │                          │
+ │ HTTP Shortcuts        │ ──────────────────────────────► │   API REST de Notion     │
+ │ src/finanzas.js       │   POST /databases/{id}/query    │                          │
+ └───────────────────────┘                                 │  Movimientos, Cuentas,   │
+   meter gastos, desde donde sea                           │  Categorías,             │
+                                                           │  Suscripciones, Deudas   │
+ ┌───────────────────────┐                                 │                          │
+ │ Portátil (Docker)     │   POST /databases/{id}/query    │                          │
+ │ Flask + gunicorn      │ ──────────────────────────────► │                          │
+ │ web/app               │   (solo lectura)                └──────────────────────────┘
+ └──────────▲────────────┘
+            │ http://localhost:8000
+        navegador
 ```
 
-- **Notion es el backend.** Guarda los datos y calcula todo con fórmulas y rollups: saldos, gasto del mes por categoría, próximo pago de cada suscripción, cuotas pendientes de cada deuda. Ver el [modelo de datos](docs/modelo-datos.md).
-- **El móvil es solo un cliente.** Un script en JavaScript que se ejecuta en [HTTP Shortcuts](https://http-shortcuts.rmy.ch/). Primero *lee* cuentas, categorías, suscripciones y deudas para montar los menús, y luego *crea* el movimiento. No hay nada cableado: si añado una cuenta en Notion, aparece sola en el móvil.
+- **Notion es el backend.** Guarda los datos y calcula los saldos con fórmulas y rollups. Ver el [modelo de datos](docs/modelo-datos.md).
+- **El móvil es un cliente para escribir.** Un script de [HTTP Shortcuts](https://http-shortcuts.rmy.ch/) que lee cuentas, categorías, suscripciones y deudas para montar los menús y crea el movimiento. No hay nada cableado: si añado una cuenta en Notion, aparece sola en el móvil.
+- **El portátil es un cliente para leer.** Una web en Flask, dentro de Docker, que pide los datos a Notion y los presenta ordenados. El token se queda en el servidor y nunca llega al navegador. Ver [docs/web.md](docs/web.md).
 
 ## Qué hace
+
+### Desde el móvil
 
 Al pulsar el botón **Finanzas**:
 
@@ -31,37 +42,55 @@ Al pulsar el botón **Finanzas**:
 
 Cancelar cualquier pregunta no guarda nada. Los importes aceptan coma decimal (`12,50`).
 
+### En el portátil
+
+```bash
+cp .env.example .env     # y pon tu NOTION_TOKEN
+docker compose up -d --build
+```
+
+Y abre <http://localhost:8000>. Sin token arranca con datos de ejemplo.
+
 ## Estructura
 
 ```
-src/finanzas.js            Script del atajo (HTTP Shortcuts)
-tests/finanzas.test.js     Tests con la app y la API de Notion simuladas
-docs/modelo-datos.md       Esquema de las bases de datos de Notion
-docs/instalacion-android.md Puesta en marcha en el móvil
-.github/workflows/ci.yml   Sintaxis + tests + detección de tokens en cada push
+src/finanzas.js              Script del atajo del móvil (HTTP Shortcuts)
+tests/finanzas.test.js       Tests del atajo con la app y Notion simulados
+web/app/notion.py            Cliente de solo lectura de la API de Notion
+web/app/resumen.py           Cálculos del panel (funciones puras)
+web/app/templates, static    HTML y CSS del panel
+web/tests/                   Tests de la web (pytest)
+web/Dockerfile               Imagen con gunicorn y usuario sin privilegios
+docker-compose.yml           Arranque en local, solo en 127.0.0.1
+docs/                        Modelo de datos, instalación en Android y guía de la web
+.github/workflows/ci.yml     Tests, build del contenedor y detección de tokens
 ```
 
 ## Desarrollo
 
 ```bash
-npm test        # 8 tests, sin dependencias (node:test)
-npm run lint    # comprobación de sintaxis
+npm test                          # atajo: 8 tests, sin dependencias (node:test)
+cd web && pytest                  # web: 17 tests
+docker compose up -d --build      # panel en http://localhost:8000
 ```
 
 Los tests ejecutan el script real dentro de un sandbox de Node (`vm`), sustituyendo las funciones de HTTP Shortcuts (`prompt`, `showSelection`, `sendHttpRequest`…) por mocks. Así se prueba cada flujo sin móvil y sin tocar Notion.
 
 ## Seguridad
 
-- El token de Notion vive solo en una variable de HTTP Shortcuts del móvil. **Nunca** está en el código.
+- El token de Notion vive solo en una variable de HTTP Shortcuts del móvil y en el `.env` del portátil. **Nunca** está en el código.
+- La web escucha solo en `127.0.0.1` y tiene contraseña opcional (`APP_PASSWORD`) para el día que se publique.
 - La integración de Notion solo tiene acceso a la página Smart Finance.
 - La CI falla si detecta algo con pinta de token (`ntn_…`) en el repositorio.
 
 ## Hoja de ruta
 
-- [ ] Dashboard web para el portátil (lectura rápida y esquemática de los datos)
-- [ ] Contenerizarlo (Dockerfile + docker-compose)
-- [ ] Despliegue automático en mi VPS con GitHub Actions
-- [ ] Usar el dashboard también en el móvil como PWA, con una interfaz propia
+- [x] Atajo del móvil para gastos, ingresos, transferencias y pagos recurrentes
+- [x] Panel web para el portátil
+- [x] Contenedor Docker y CI que lo construye y lo prueba
+- [ ] Gráfico de evolución del saldo mes a mes
+- [ ] Publicarlo gratis (Render) para verlo fuera de casa
+- [ ] Usar el panel también en el móvil como PWA
 
 ## Autoría
 
