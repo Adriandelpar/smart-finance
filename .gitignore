@@ -1,0 +1,11 @@
+# Secretos: el token de Notion NUNCA se sube
+.env
+*.env
+secrets/
+
+# Node
+node_modules/
+
+# Sistema
+.DS_Store
+*.swp
