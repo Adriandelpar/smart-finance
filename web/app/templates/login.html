@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block titulo %}Entrar · Smart Finance{% endblock %}
+{% block cuerpo %}
+<main class="login">
+  <form method="post">
+    <h1>Smart Finance</h1>
+    <label for="clave">Contraseña</label>
+    <input id="clave" name="clave" type="password" autocomplete="current-password" autofocus required>
+    <button type="submit">Entrar</button>
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+  </form>
+</main>
+{% endblock %}
