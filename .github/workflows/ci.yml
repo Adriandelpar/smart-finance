@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Comprobar sintaxis
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Comprobar que no se ha subido ningún token de Notion
+        run: |
+          if grep -rnE '(ntn_|secret_)[A-Za-z0-9]{20,}' --exclude-dir=.git .; then
+            echo "::error::Hay un token de Notion en el repositorio"
+            exit 1
+          fi
