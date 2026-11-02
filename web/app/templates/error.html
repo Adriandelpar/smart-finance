@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block titulo %}No se pudo leer Notion · Smart Finance{% endblock %}
+{% block cuerpo %}
+<main class="login">
+  <div>
+    <h1>No se pudo leer Notion</h1>
+    <p>Revisa estas dos cosas y recarga la página:</p>
+    <ul>
+      <li>Que <code>NOTION_TOKEN</code> en el fichero <code>.env</code> es el secreto de tu integración.</li>
+      <li>Que la integración está conectada a la página Smart Finance (••• → Conexiones).</li>
+    </ul>
+    <p class="nota">Respuesta de Notion: {{ mensaje }}</p>
+    <p><a href="{{ url_for('panel', refrescar=1) }}">Volver a intentarlo</a></p>
+  </div>
+</main>
+{% endblock %}

@@ -14,7 +14,7 @@
   </nav>
   <div class="acciones">
     {% if demo %}<span class="aviso-demo" title="No hay token de Notion configurado">Datos de ejemplo</span>{% endif %}
-    {% block acciones %}{% endblock %}
+    {% if not demo %}<a class="boton-texto" href="{{ url_for('panel', mes=r.mes, refrescar=1) }}">Actualizar</a>{% endif %}
   </div>
 </header>
 
