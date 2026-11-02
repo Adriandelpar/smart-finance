@@ -1,0 +1,11 @@
+{
+  "name": "smart-finance",
+  "version": "1.0.0",
+  "description": "Gestor de gastos personal con Notion como backend y un atajo Android (HTTP Shortcuts)",
+  "private": true,
+  "scripts": {
+    "lint": "node --check src/finanzas.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "license": "MIT"
+}
