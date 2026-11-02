@@ -30,7 +30,8 @@ function api(method, path, body) {
   if (body) options.body = JSON.stringify(body);
   const r = sendHttpRequest('https://api.notion.com/v1/' + path, options);
   if (r.status !== 'success') {
-    showToast('Error: ' + (r.response ? r.response.body : r.networkError));
+    const detalle = r.response ? r.response.body : r.networkError;
+    showDialog('No he podido hablar con Notion:\n\n' + detalle, '❌ Error');
     abortAll();
   }
   return JSON.parse(r.response.body);
@@ -72,7 +73,12 @@ function elegir(titulo, opciones) {
 }
 
 function pedirImporte(pregunta, sugerido) {
-  return parseFloat(obligatorio(prompt(pregunta, sugerido ? String(sugerido) : '')));
+  while (true) {
+    const txt = obligatorio(prompt(pregunta, sugerido ? String(sugerido).replace('.', ',') : ''));
+    const n = parseFloat(String(txt).replace(/\s|€/g, '').replace(',', '.'));
+    if (!isNaN(n) && n > 0) return Math.round(n * 100) / 100;
+    showToast('Escribe un número mayor que 0, por ejemplo 12,50');
+  }
 }
 
 function elegirCuenta(pregunta, excluir) {
