@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% from "_macros.html" import fila_movimiento %}
+{% set seccion = 'resumen' %}
+{% block titulo %}{{ r.nombre_mes | capitalize }} · Smart Finance{% endblock %}
+{% block contenido %}
+<div class="barra-mes">
+  <nav class="meses" aria-label="Cambiar de mes">
+    <a href="{{ url_for('resumen_mes', mes=r.mes_anterior) }}" aria-label="Mes anterior">‹</a>
+    <span>{{ r.nombre_mes | capitalize }}</span>
+    {% if not r.es_mes_actual %}
+      <a href="{{ url_for('resumen_mes', mes=r.mes_siguiente) }}" aria-label="Mes siguiente">›</a>
+    {% else %}
+      <span class="hueco" aria-hidden="true">›</span>
+    {% endif %}
+  </nav>
+  {% if not demo %}<a class="boton-texto" href="{{ url_for('resumen_mes', mes=r.mes, refrescar=1) }}">Actualizar datos</a>{% endif %}
+</div>
+
+<section class="saldo" aria-labelledby="t-saldo">
+  <h1 id="t-saldo">Tienes <strong class="cifra">{{ r.total | euros }}</strong></h1>
+  <div class="reparto" role="img" aria-label="Reparto del saldo entre cuentas">
+    {% for c in r.cuentas if c.peso > 0 %}
+      <span class="tramo t{{ loop.index }}" style="flex-grow: {{ c.peso }}"></span>
+    {% endfor %}
+  </div>
+  <ul class="cuentas">
+    {% for c in r.cuentas %}
+      <li>
+        <span class="punto t{{ loop.index }}" aria-hidden="true"></span>
+        <a class="nombre" href="{{ url_for('movimientos', periodo='todo', cuenta=c.id) }}">{{ c.emoji }} {{ c.nombre }}</a>
+        <span class="cifra {{ 'negativo' if c.saldo < 0 }}">{{ c.saldo | euros }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section class="balance" aria-label="Balance del mes">
+  <p>
+    {% if r.es_mes_actual %}Este mes llevas{% else %}En {{ r.nombre_mes }} tuviste{% endif %}
+    <span class="cifra negativo">{{ r.gastos | euros }}</span> en gastos y
+    <span class="cifra positivo">{{ r.ingresos | euros }}</span> en ingresos.
+    {% if r.gastos_anterior %}
+      {% set dif = r.gastos - r.gastos_anterior %}
+      <span class="de">Son <span class="cifra">{{ dif | abs | euros }}</span> {{ 'más' if dif > 0 else 'menos' }} que el mes anterior.</span>
+    {% endif %}
+  </p>
+  <p class="neto {{ 'positivo' if r.neto >= 0 else 'negativo' }}">
+    {% if r.neto >= 0 %}Ahorras{% else %}Gastas de más{% endif %}
+    <span class="cifra">{{ r.neto | abs | euros }}</span>
+  </p>
+</section>
+
+<section class="evolucion" aria-labelledby="t-evo">
+  <div class="fila">
+    <h2 id="t-evo">Últimos 12 meses</h2>
+    <p class="leyenda">
+      <span><span class="punto ingreso"></span>Ingresos</span>
+      <span><span class="punto gasto"></span>Gastos</span>
+      {% if r.gasto_medio %}<span><span class="linea-media"></span>Gasto medio {{ r.gasto_medio | euros }}</span>{% endif %}
+    </p>
+  </div>
+  {% set alto = 140 %}{% set ancho_mes = 60 %}{% set maximo = r.serie_maximo %}
+  <svg class="grafico" viewBox="0 0 {{ ancho_mes * 12 }} {{ alto + 28 }}" role="img"
+       aria-label="Ingresos y gastos de los últimos 12 meses">
+    {% for s in r.serie %}
+      {% set x = loop.index0 * ancho_mes %}
+      {% set hi = (s.ingresos / maximo * alto) | round(1) %}
+      {% set hg = (s.gastos / maximo * alto) | round(1) %}
+      <a href="{{ url_for('resumen_mes', mes=s.mes) }}" class="{{ 'actual' if s.actual }}">
+        <title>{{ s.etiqueta }}: ingresos {{ s.ingresos | euros }}, gastos {{ s.gastos | euros }}</title>
+        <rect class="zona" x="{{ x + 2 }}" y="0" width="{{ ancho_mes - 4 }}" height="{{ alto + 26 }}" rx="4"></rect>
+        <rect class="barra-ingreso" x="{{ x + 12 }}" y="{{ alto - hi }}" width="17" height="{{ hi }}" rx="2"></rect>
+        <rect class="barra-gasto-g" x="{{ x + 31 }}" y="{{ alto - hg }}" width="17" height="{{ hg }}" rx="2"></rect>
+        <text x="{{ x + ancho_mes / 2 }}" y="{{ alto + 19 }}" text-anchor="middle">{{ s.etiqueta }}</text>
+      </a>
+    {% endfor %}
+    {% if r.gasto_medio %}
+      {% set y = (alto - r.gasto_medio / maximo * alto) | round(1) %}
+      <line class="media" x1="0" x2="{{ ancho_mes * 12 }}" y1="{{ y }}" y2="{{ y }}"></line>
+    {% endif %}
+    <line class="eje" x1="0" x2="{{ ancho_mes * 12 }}" y1="{{ alto }}" y2="{{ alto }}"></line>
+  </svg>
+</section>
+
+<div class="columnas">
+  <div class="principal">
+    <section aria-labelledby="t-cat">
+      <div class="fila">
+        <h2 id="t-cat">En qué se va el dinero</h2>
+        <a class="enlace-seccion" href="{{ url_for('movimientos', periodo='mes', mes=r.mes, agrupar='categoria', tipo='Gasto') }}">Ver por categoría</a>
+      </div>
+      {% if r.categorias %}
+        <ul class="categorias">
+          {% for c in r.categorias %}
+            <li class="{{ c.estado or '' }}">
+              <div class="fila">
+                <a class="nombre" href="{{ url_for('movimientos', periodo='todo', categoria=c.id) }}">{{ c.emoji }} {{ c.nombre }}</a>
+                <span class="cifra">
+                  {{ c.gastado | euros }}{% if c.presupuesto %}<span class="de"> de {{ c.presupuesto | euros }}</span>{% endif %}
+                </span>
+              </div>
+              <div class="pista">
+                <span class="barra-gasto" style="width: {{ (c.ancho * 100) | round(2) }}%"></span>
+                {% if c.marca is not none %}<span class="limite" style="left: {{ (c.marca * 100) | round(2) }}%" title="Presupuesto"></span>{% endif %}
+              </div>
+              <p class="nota">
+                {% if c.estado == 'pasado' %}<span class="alerta">Te has pasado {{ (c.gastado - c.presupuesto) | euros }} del presupuesto.</span>
+                {% elif c.estado == 'cerca' %}<span class="alerta">Te quedan {{ (c.presupuesto - c.gastado) | euros }}.</span>{% endif %}
+                {% if c.anterior or c.gastado %}
+                  {% if c.diferencia > 0.005 %}{{ c.diferencia | euros }} más que el mes anterior.
+                  {% elif c.diferencia < -0.005 %}{{ c.diferencia | abs | euros }} menos que el mes anterior.
+                  {% else %}Igual que el mes anterior.{% endif %}
+                {% endif %}
+              </p>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="vacio">Aún no hay gastos en {{ r.nombre_mes }}.</p>
+      {% endif %}
+    </section>
+
+    <section aria-labelledby="t-mov">
+      <div class="fila">
+        <h2 id="t-mov">Movimientos del mes</h2>
+        <a class="enlace-seccion" href="{{ url_for('movimientos', periodo='mes', mes=r.mes) }}">Ver todos y filtrar</a>
+      </div>
+      {% if r.movimientos %}
+        <ol class="movimientos">
+          {% for m in r.movimientos[:8] %}{{ fila_movimiento(m) }}{% endfor %}
+        </ol>
+        {% if r.movimientos | length > 8 %}
+          <details class="mas">
+            <summary>Ver los {{ r.movimientos | length - 8 }} anteriores</summary>
+            <ol class="movimientos">
+              {% for m in r.movimientos[8:] %}{{ fila_movimiento(m) }}{% endfor %}
+            </ol>
+          </details>
+        {% endif %}
+      {% else %}
+        <p class="vacio">No hay movimientos en {{ r.nombre_mes }}. <a href="{{ url_for('nuevo_movimiento') }}">Añade el primero</a>.</p>
+      {% endif %}
+    </section>
+  </div>
+
+  <aside class="lateral">
+    <section aria-labelledby="t-cuentas-mes">
+      <h2 id="t-cuentas-mes">Gasto por cuenta</h2>
+      <ul class="por-cuenta">
+        {% for c in r.cuentas %}
+          <li class="fila">
+            <a class="nombre" href="{{ url_for('movimientos', periodo='mes', mes=r.mes, cuenta=c.id) }}">{{ c.emoji }} {{ c.nombre }}</a>
+            <span class="cifra">{{ c.gastado_mes | euros }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section aria-labelledby="t-pagos">
+      <div class="fila">
+        <h2 id="t-pagos">Próximos pagos</h2>
+        <a class="enlace-seccion" href="{{ url_for('lista', clave='suscripciones') }}">Gestionar</a>
+      </div>
+      <p class="resumen-pagos">Tus suscripciones suman <span class="cifra">{{ r.coste_mensual_suscripciones | euros }}</span> al mes.</p>
+      {% if r.pagos %}
+        <ol class="pagos">
+          {% for p in r.pagos %}
+            <li class="{{ 'pronto' if p.dias is not none and p.dias <= 3 }}">
+              <span class="cuando">
+                {% if p.dias == 0 %}Hoy{% elif p.dias == 1 %}Mañana{% elif p.dias is not none %}En {{ p.dias }} días, {{ p.fecha.strftime('%d/%m') }}{% else %}{{ p.fecha.strftime('%d/%m') }}{% endif %}
+              </span>
+              <span class="nombre">{{ p.nombre }}</span>
+              <span class="cifra">{{ p.importe | euros }}</span>
+            </li>
+          {% endfor %}
+        </ol>
+      {% else %}
+        <p class="vacio">No tienes pagos programados. <a href="{{ url_for('nuevo', clave='suscripciones') }}">Añade una suscripción</a>.</p>
+      {% endif %}
+    </section>
+
+    {% if r.deudas %}
+    <section aria-labelledby="t-deudas">
+      <div class="fila">
+        <h2 id="t-deudas">Deudas</h2>
+        <a class="enlace-seccion" href="{{ url_for('lista', clave='deudas') }}">Gestionar</a>
+      </div>
+      <ul class="deudas">
+        {% for d in r.deudas %}
+          <li>
+            <div class="fila">
+              <span class="nombre">{{ d.nombre }}</span>
+              <span class="cifra">{{ d.pendiente | euros }} <span class="de">pendientes</span></span>
+            </div>
+            <div class="pista"><span class="barra-pagado" style="width: {{ (d.progreso * 100) | round(2) }}%"></span></div>
+            <p class="nota">{{ d.cuotas }} de {{ d.n_cuotas }} cuotas pagadas, {{ d.pagado | euros }} de {{ d.total | euros }}</p>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

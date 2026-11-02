@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% from "_macros.html" import fila_movimiento, subtotales %}
+{% set seccion = 'movimientos' %}
+{% block titulo %}Movimientos · Smart Finance{% endblock %}
+{% block contenido %}
+<div class="titulo-pagina">
+  <h1>Movimientos</h1>
+  <a class="boton-texto" href="{{ request.full_path ~ ('&' if '?' in request.full_path else '?') }}formato=csv">Exportar CSV</a>
+</div>
+
+<details class="filtros-plegable" open id="filtros">
+<summary>Filtros y agrupación</summary>
+<form class="filtros" method="get" action="{{ url_for('movimientos') }}">
+  <label>Periodo
+    <select name="periodo" data-autoenviar>
+      {% for k, v in PERIODOS.items() %}<option value="{{ k }}" {{ 'selected' if periodo == k }}>{{ v }}</option>{% endfor %}
+    </select>
+  </label>
+  {% if periodo == 'mes' %}
+    <label>Mes <input type="month" name="mes" value="{{ mes }}" data-autoenviar></label>
+  {% elif periodo == 'rango' %}
+    <label>Desde <input type="date" name="desde" value="{{ f.get('desde', '') }}"></label>
+    <label>Hasta <input type="date" name="hasta" value="{{ f.get('hasta', '') }}"></label>
+  {% endif %}
+  <label>Tipo
+    <select name="tipo" data-autoenviar>
+      <option value="">Todos</option>
+      {% for t in ENTIDADES.movimientos.campo('Tipo').opciones %}<option {{ 'selected' if f.get('tipo') == t }}>{{ t }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Cuenta
+    <select name="cuenta" data-autoenviar>
+      <option value="">Todas</option>
+      {% for c in cat.cuentas %}<option value="{{ c.id }}" {{ 'selected' if f.get('cuenta') == c.id }}>{{ c.emoji }} {{ c.Nombre }}</option>{% endfor %}
+    </select>
+  </label>
+  <label>Categoría
+    <select name="categoria" data-autoenviar>
+      <option value="">Todas</option>
+      {% for t in ('Gasto', 'Ingreso') %}
+        <optgroup label="{{ 'De gasto' if t == 'Gasto' else 'De ingreso' }}">
+          {% for c in cat.categorias if c.Tipo == t %}<option value="{{ c.id }}" {{ 'selected' if f.get('categoria') == c.id }}>{{ c.emoji }} {{ c.Nombre }}</option>{% endfor %}
+        </optgroup>
+      {% endfor %}
+      <option value="sin" {{ 'selected' if f.get('categoria') == 'sin' }}>Sin categoría</option>
+    </select>
+  </label>
+  <label>Agrupar por
+    <select name="agrupar" data-autoenviar>
+      {% for k, v in AGRUPACIONES.items() %}<option value="{{ k }}" {{ 'selected' if agrupar == k }}>{{ v }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="buscar">Buscar <input type="search" name="q" value="{{ f.get('q', '') }}" placeholder="Concepto o categoría"></label>
+  <div class="botones-filtro">
+    <button class="boton">Aplicar</button>
+    <a class="boton-texto" href="{{ url_for('movimientos') }}">Quitar filtros</a>
+  </div>
+</form>
+</details>
+
+{% if periodo == 'mes' %}
+  <nav class="meses meses-pequeno" aria-label="Cambiar de mes">
+    {% set args = f.to_dict() %}
+    <a href="{{ url_for('movimientos', **dict(args, mes=mes_anterior, periodo='mes')) }}" aria-label="Mes anterior">‹</a>
+    <span>{{ nombre_mes | capitalize }}</span>
+    <a href="{{ url_for('movimientos', **dict(args, mes=mes_siguiente, periodo='mes')) }}" aria-label="Mes siguiente">›</a>
+  </nav>
+{% endif %}
+
+<section class="totales" aria-label="Totales del filtro">
+  <p><span class="de">Movimientos</span><strong>{{ total.n }}</strong></p>
+  <p><span class="de">Ingresos</span><strong class="positivo">{{ total.ingresos | euros }}</strong></p>
+  <p><span class="de">Gastos</span><strong class="negativo">{{ total.gastos | euros }}</strong></p>
+  <p><span class="de">Balance</span><strong class="{{ 'positivo' if total.neto >= 0 else 'negativo' }}">{{ total.neto | euros(signo=True) }}</strong></p>
+</section>
+
+{% if total.n %}
+  {% for g in grupos %}
+    <section class="grupo">
+      {% if g.titulo %}
+        <div class="grupo-cabecera">
+          <h2>{{ g.titulo }}</h2>
+          {{ subtotales(g) }}
+        </div>
+      {% endif %}
+      <ol class="movimientos {{ 'fecha-larga' if periodo != 'mes' }}">
+        {% for m in g.filas %}{{ fila_movimiento(m, '%d/%m/%y' if periodo != 'mes' else '%d/%m') }}{% endfor %}
+      </ol>
+    </section>
+  {% endfor %}
+{% else %}
+  <p class="vacio">No hay movimientos con estos filtros. <a href="{{ url_for('nuevo_movimiento') }}">Añade uno</a> o prueba con otro periodo.</p>
+{% endif %}
+
+<script>
+  // Al cambiar un desplegable, aplica el filtro sin tener que pulsar el botón
+  // En el móvil los filtros empiezan plegados para que se vea la lista
+  if (window.matchMedia('(max-width: 760px)').matches) document.getElementById('filtros').open = false;
+  document.querySelectorAll('[data-autoenviar]').forEach(el =>
+    el.addEventListener('change', () => el.form.requestSubmit()));
+</script>
+{% endblock %}

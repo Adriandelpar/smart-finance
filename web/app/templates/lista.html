@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% set seccion = entidad.clave %}
+{% block titulo %}{{ entidad.plural }} · Smart Finance{% endblock %}
+
+{% macro valor(c_tipo, v) -%}
+  {%- if v is none or v == '' or v == [] -%}<span class="de">—</span>
+  {%- elif c_tipo == 'number_euros' -%}<span class="cifra {{ 'negativo' if v < 0 }}">{{ v | euros }}</span>
+  {%- elif c_tipo == 'checkbox' -%}{{ 'Sí' if v else 'No' }}
+  {%- elif c_tipo == 'relation' -%}{% for i in v %}{{ nombres.get(i, '¿?') }}{{ ', ' if not loop.last }}{% endfor %}
+  {%- elif c_tipo == 'date' -%}{{ v[8:10] }}/{{ v[5:7] }}/{{ v[:4] }}
+  {%- else -%}{{ v }}{%- endif -%}
+{%- endmacro %}
+
+{% block contenido %}
+{% macro tabla(filas, columnas) %}
+<div class="tabla-envoltorio">
+  <table class="tabla">
+    <thead>
+      <tr>
+        <th scope="col">{{ entidad.titulo }}</th>
+        {% for n, t in columnas %}<th scope="col" class="{{ 'num' if t.startswith('number') }}">{{ n }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in filas | sort(attribute=entidad.titulo) %}
+        <tr class="{{ 'inactiva' if r.get('Activa') == false }}">
+          <th scope="row">
+            <a href="{{ url_for('editar', clave=entidad.clave, id_=r.id) }}">{{ r.emoji }} {{ r.get(entidad.titulo) }}</a>
+          </th>
+          {% for n, t in columnas %}<td class="{{ 'num' if t.startswith('number') }}">{{ valor(t, r.get(n)) }}</td>{% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+<div class="titulo-pagina">
+  <h1>{{ entidad.plural }}</h1>
+  <a class="boton" href="{{ url_for('nuevo', clave=entidad.clave) }}">{{ 'Nueva' if entidad.singular in ('cuenta', 'categoría', 'suscripción', 'deuda') else 'Nuevo' }} {{ entidad.singular }}</a>
+</div>
+
+{% set enteros = ('Nº cuotas', 'Nº pagos', 'Días restantes') %}
+{% set columnas = [] %}
+{% for c in entidad.campos if c.tipo != 'title' and not (entidad.clave == 'categorias' and c.nombre == 'Tipo') %}{% set _ = columnas.append((c.nombre, 'number_euros' if c.tipo == 'number' and c.nombre not in enteros else c.tipo)) %}{% endfor %}
+{% for n in entidad.calculados %}{% set _ = columnas.append((n, 'date' if n == 'Siguiente pago' else ('number' if n in enteros else 'number_euros'))) %}{% endfor %}
+
+{% if registros %}
+  {% if entidad.clave == 'categorias' %}
+    {% for t in ('Gasto', 'Ingreso') %}
+      <h2 class="subtitulo">{{ 'De gasto' if t == 'Gasto' else 'De ingreso' }}</h2>
+      {{ tabla(registros | selectattr('Tipo', 'equalto', t) | list, columnas) }}
+    {% endfor %}
+  {% else %}
+    {{ tabla(registros, columnas) }}
+  {% endif %}
+{% else %}
+  <p class="vacio">Todavía no hay {{ entidad.plural | lower }}. <a href="{{ url_for('nuevo', clave=entidad.clave) }}">Añade la primera</a>.</p>
+{% endif %}
+
+{% endblock %}

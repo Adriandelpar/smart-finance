@@ -8,6 +8,35 @@
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
 </head>
 <body>
-  {% block cuerpo %}{% endblock %}
+{% block pagina %}
+  {% set seccion = seccion | default('') %}
+  <header class="cabecera">
+    <div class="cabecera-fila">
+      <a class="marca" href="{{ url_for('resumen_mes') }}">Smart Finance</a>
+      <div class="acciones">
+        {% if demo %}<span class="aviso-demo" title="Sin token de Notion: los cambios se pierden al reiniciar">Datos de ejemplo</span>{% endif %}
+        {% if con_login %}<form method="post" action="{{ url_for('salir') }}"><input type="hidden" name="csrf" value="{{ csrf }}"><button class="boton-texto">Cerrar sesión</button></form>{% endif %}
+        <a class="boton" href="{{ url_for('nuevo_movimiento', volver=request.full_path) }}">Añadir movimiento</a>
+      </div>
+    </div>
+    <nav class="pestanas" aria-label="Secciones">
+      <a href="{{ url_for('resumen_mes') }}" {% if seccion == 'resumen' %}aria-current="page"{% endif %}>Resumen</a>
+      <a href="{{ url_for('movimientos') }}" {% if seccion == 'movimientos' %}aria-current="page"{% endif %}>Movimientos</a>
+      {% for clave in GESTIONABLES %}
+        <a href="{{ url_for('lista', clave=clave) }}" {% if seccion == clave %}aria-current="page"{% endif %}>{{ ENTIDADES[clave].plural }}</a>
+      {% endfor %}
+    </nav>
+  </header>
+
+  {% with mensajes = get_flashed_messages() %}
+    {% if mensajes %}
+      <div class="avisos" role="status">
+        {% for m in mensajes %}<p>{{ m }}</p>{% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <main>{% block contenido %}{% endblock %}</main>
+{% endblock %}
 </body>
 </html>

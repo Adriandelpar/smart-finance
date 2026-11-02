@@ -22,5 +22,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s \
   CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/salud')"
 
-# gunicorn: servidor de producción (el `flask run` es solo para desarrollo)
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "2", "app:create_app()"]
+# gunicorn: servidor de producción (el `flask run` es solo para desarrollo).
+# Un solo proceso con 4 hilos: así la caché de Notion (y la demo en memoria)
+# es una sola y todos los cambios se ven al momento. Para uso personal sobra.
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "1", "--threads", "4", "app:create_app()"]

@@ -1,0 +1,25 @@
+{% macro importe(m) -%}
+  <span class="cifra {{ 'positivo' if m.signo > 0 else 'negativo' if m.signo < 0 else 'neutro' }}">
+    {%- if m.signo > 0 %}+{% elif m.signo < 0 %}−{% endif %}{{ m.importe | euros }}</span>
+{%- endmacro %}
+
+{% macro fila_movimiento(m, formato_fecha='%d/%m') %}
+  <li>
+    <time datetime="{{ m.fecha.isoformat() if m.fecha }}">{{ m.fecha.strftime(formato_fecha) if m.fecha }}</time>
+    <a class="detalle" href="{{ url_for('editar_movimiento', id_=m.id, volver=request.full_path) }}">
+      <span class="concepto">{{ m.emoji }} {{ m.concepto }}{% if m.recurrente %} <span class="etiqueta" title="Pago recurrente">recurrente</span>{% endif %}</span>
+      <span class="donde">
+        {% if m.tipo == 'Transferencia' %}{{ m.cuenta or '¿?' }} a {{ m.destino or '¿?' }}{% else %}{{ m.categoria or 'Sin categoría' }}, {{ m.cuenta or 'sin cuenta' }}{% endif %}
+      </span>
+    </a>
+    {{ importe(m) }}
+  </li>
+{% endmacro %}
+
+{% macro subtotales(g) %}
+  <span class="subtotales">
+    {% if g.ingresos %}<span class="positivo">+{{ g.ingresos | euros }}</span>{% endif %}
+    {% if g.gastos %}<span class="negativo">−{{ g.gastos | euros }}</span>{% endif %}
+    <span class="de">{{ g.n }} {{ 'movimiento' if g.n == 1 else 'movimientos' }}</span>
+  </span>
+{% endmacro %}

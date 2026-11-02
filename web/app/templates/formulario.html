@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% set seccion = entidad.clave %}
+{% set editando = registro is not none %}
+{% block titulo %}{{ 'Editar' if editando else 'Nuevo' }} {{ entidad.singular }} · Smart Finance{% endblock %}
+{% block contenido %}
+<div class="formulario-pagina">
+  <h1>{% if editando %}Editar {{ entidad.singular }}{% else %}{{ 'Nueva' if entidad.singular in ('cuenta', 'categoría', 'suscripción', 'deuda') else 'Nuevo' }} {{ entidad.singular }}{% endif %}</h1>
+
+  <form method="post" class="formulario" id="formulario" novalidate>
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <input type="hidden" name="volver" value="{{ volver }}">
+
+    {% if errores %}<p class="error" role="alert">Revisa los campos marcados.</p>{% endif %}
+
+    {% if entidad.clave == 'movimientos' %}
+      {# El tipo va primero y como botones: decide qué campos tienen sentido #}
+      <fieldset class="selector-tipo">
+        <legend>Tipo</legend>
+        {% for t in entidad.campo('Tipo').opciones %}
+          <label><input type="radio" name="Tipo" value="{{ t }}" {{ 'checked' if valores.get('Tipo', 'Gasto') == t }}> {{ t }}</label>
+        {% endfor %}
+      </fieldset>
+    {% endif %}
+
+    {% if entidad.con_emoji %}
+      <div class="campo campo-emoji">
+        <label for="emoji">Emoji</label>
+        <input id="emoji" name="emoji" value="{{ valores.get('emoji', '') }}" maxlength="4" placeholder="🍔">
+      </div>
+    {% endif %}
+
+    {% for c in entidad.campos if not (entidad.clave == 'movimientos' and c.nombre == 'Tipo') %}
+      {% set v = valores.get(c.nombre, '') %}
+      {% set id_campo = 'c-' ~ loop.index %}
+      <div class="campo {{ 'con-error' if errores.get(c.nombre) }}" data-campo="{{ c.nombre }}">
+        {% if c.tipo == 'checkbox' %}
+          <label class="casilla"><input type="checkbox" name="{{ c.nombre }}" {{ 'checked' if v }}> {{ c.nombre }}</label>
+        {% else %}
+          <label for="{{ id_campo }}">{{ c.nombre }}{% if not c.obligatorio %} <span class="de">(opcional)</span>{% endif %}</label>
+          {% if c.tipo == 'title' %}
+            <input id="{{ id_campo }}" name="{{ c.nombre }}" value="{{ v }}" {{ 'required' if c.obligatorio }} autocomplete="off" {{ 'autofocus' if not editando }}>
+          {% elif c.tipo == 'number' %}
+            <input id="{{ id_campo }}" name="{{ c.nombre }}" value="{{ v }}" inputmode="decimal" {{ 'required' if c.obligatorio }}
+                   placeholder="{{ '12' if c.nombre == 'Nº cuotas' else '0,00' }}">
+          {% elif c.tipo == 'select' %}
+            <select id="{{ id_campo }}" name="{{ c.nombre }}" {{ 'required' if c.obligatorio }}>
+              {% if not c.obligatorio %}<option value="">Sin elegir</option>{% endif %}
+              {% for o in c.opciones %}<option {{ 'selected' if v == o }}>{{ o }}</option>{% endfor %}
+            </select>
+          {% elif c.tipo == 'date' %}
+            <input id="{{ id_campo }}" type="date" name="{{ c.nombre }}" value="{{ v }}" {{ 'required' if c.obligatorio }}>
+          {% elif c.tipo == 'datetime' %}
+            <input id="{{ id_campo }}" type="datetime-local" name="{{ c.nombre }}" value="{{ v }}" {{ 'required' if c.obligatorio }}>
+          {% elif c.tipo == 'relation' %}
+            <select id="{{ id_campo }}" name="{{ c.nombre }}" {{ 'required' if c.obligatorio }}>
+              <option value="">{{ 'Elige una' if c.obligatorio else 'Ninguna' }}</option>
+              {% for id_, etiqueta, tipo in opciones[c.nombre] %}
+                <option value="{{ id_ }}" data-tipo="{{ tipo or '' }}" {{ 'selected' if v == id_ }}>{{ etiqueta }}</option>
+              {% endfor %}
+            </select>
+          {% endif %}
+        {% endif %}
+        {% if errores.get(c.nombre) %}<p class="error">{{ errores[c.nombre] }}</p>
+        {% elif c.ayuda %}<p class="nota">{{ c.ayuda }}</p>{% endif %}
+      </div>
+    {% endfor %}
+
+    <div class="botones">
+      <button class="boton" type="submit">{{ 'Guardar cambios' if editando else 'Añadir' }}</button>
+      <a class="boton-texto" href="{{ volver }}">Cancelar</a>
+    </div>
+  </form>
+
+  {% if editando %}
+    <form method="post" action="{{ url_for('eliminar', clave=entidad.clave, id_=registro.id) }}" class="zona-peligro"
+          onsubmit="return confirm('¿Eliminar «{{ registro.get(entidad.titulo, '') | e }}»?');">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <input type="hidden" name="volver" value="{{ volver }}">
+      <button class="boton-peligro">Eliminar {{ entidad.singular }}</button>
+      {% if not demo %}<span class="nota">Va a la papelera de Notion, desde donde se puede recuperar.</span>{% endif %}
+    </form>
+  {% endif %}
+</div>
+
+{% if entidad.clave == 'movimientos' %}
+<script>
+  // Según el tipo: en transferencias se pide cuenta destino y no categoría,
+  // y las categorías se filtran (de gasto o de ingreso).
+  const form = document.getElementById('formulario');
+  const campo = n => form.querySelector(`[data-campo="${n}"]`);
+  function ajustar() {
+    const tipo = form.querySelector('input[name="Tipo"]:checked').value;
+    const transf = tipo === 'Transferencia';
+    campo('Cuenta destino').hidden = !transf;
+    campo('Categoría').hidden = transf;
+    campo('Suscripción').hidden = tipo !== 'Gasto';
+    campo('Deuda').hidden = tipo !== 'Gasto';
+    const sel = campo('Categoría').querySelector('select');
+    sel.querySelectorAll('option[data-tipo]').forEach(o => {
+      o.hidden = o.dataset.tipo && o.dataset.tipo !== tipo;
+      if (o.hidden && o.selected) sel.value = '';
+    });
+    campo('Cuenta').querySelector('label').firstChild.textContent = transf ? 'Desde la cuenta ' : 'Cuenta ';
+  }
+  form.querySelectorAll('input[name="Tipo"]').forEach(r => r.addEventListener('change', ajustar));
+  ajustar();
+</script>
+{% endif %}
+{% endblock %}

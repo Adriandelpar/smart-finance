@@ -1,86 +1,93 @@
 """Datos de ejemplo para el modo demo (cuando no hay NOTION_TOKEN).
 
-Tienen la misma forma que lo que devuelve notion.py ya "aplanado",
-así el resto de la app no sabe si los datos son reales o de demo.
+Solo lleva los datos "de entrada"; los saldos, próximos pagos y cuotas
+pagadas los calcula RepoMemoria igual que harían las fórmulas de Notion.
+Genera seis meses de historial para que haya algo que agrupar y comparar.
 """
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 
+from .repositorio import sumar_meses
 
-def _dentro(dias):
-    return (date.today() + timedelta(days=dias)).isoformat()
-
-# (concepto, importe, tipo, cuenta, categoría, extra)
+# (concepto, importe, tipo, cuenta, categoría, día del mes, extra)
 _PLANTILLA = [
-    ("Beca prácticas", 300.00, "Ingreso", "c1", "k8", {}),
-    ("Spotify", 11.99, "Gasto", "c1", "k5", {"Suscripción": ["s1"]}),
-    ("Bonobús", 21.00, "Gasto", "c2", "k3", {}),
-    ("Mercadona", 38.72, "Gasto", "c1", "k2", {}),
-    ("Retirada cajero", 50.00, "Transferencia", "c1", None, {"Cuenta destino": ["c2"]}),
-    ("Gimnasio", 29.90, "Gasto", "c1", "k6", {"Suscripción": ["s2"]}),
-    ("Cuota portátil", 62.50, "Gasto", "c1", "k7", {"Deuda": ["d1"]}),
-    ("Cena con los de clase", 24.00, "Gasto", "c3", "k1", {}),
-    ("Entradas Betis", 45.00, "Gasto", "c1", "k4", {}),
-    ("Burger con Pablo", 15.00, "Ingreso", "c3", "k9", {}),
-    ("Mercadona", 41.30, "Gasto", "c1", "k2", {}),
-    ("Ratón inalámbrico", 29.99, "Gasto", "c1", "k7", {}),
-    ("Kebab", 7.50, "Gasto", "c2", "k1", {}),
-    ("Hamburguesa", 12.50, "Gasto", "c1", "k1", {}),
+    ("Beca prácticas", 300.00, "Ingreso", "c1", "k8", 1, {}),
+    ("Spotify", 11.99, "Gasto", "c1", "k5", 3, {"Suscripción": ["s1"]}),
+    ("Bonobús", 21.00, "Gasto", "c2", "k3", 4, {}),
+    ("Mercadona", 38.72, "Gasto", "c1", "k2", 6, {}),
+    ("Retirada cajero", 50.00, "Transferencia", "c1", None, 9, {"Cuenta destino": ["c2"]}),
+    ("Gimnasio", 29.90, "Gasto", "c1", "k6", 11, {"Suscripción": ["s2"]}),
+    ("Cuota portátil", 62.50, "Gasto", "c1", "k7", 14, {"Deuda": ["d1"]}),
+    ("Cena con los de clase", 24.00, "Gasto", "c3", "k1", 16, {}),
+    ("Entradas Betis", 45.00, "Gasto", "c1", "k4", 18, {}),
+    ("Burger con Pablo", 15.00, "Ingreso", "c3", "k9", 20, {}),
+    ("Mercadona", 41.30, "Gasto", "c1", "k2", 23, {}),
+    ("Kebab", 7.50, "Gasto", "c2", "k1", 25, {}),
+    ("Ratón inalámbrico", 29.99, "Gasto", "c1", "k7", 26, {}),
+    ("Hamburguesa", 12.50, "Gasto", "c1", "k1", 28, {}),
 ]
 
-
-def _repartir(inicio, dias, plantilla, prefijo):
-    """Reparte los movimientos de la plantilla a lo largo de `dias` días desde `inicio`."""
-    movs = []
-    n = len(plantilla)
-    for i, (concepto, importe, tipo, cuenta, cat, extra) in enumerate(plantilla):
-        dia = inicio + timedelta(days=(i * max(dias - 1, 0)) // max(n - 1, 1))
-        fecha = datetime(dia.year, dia.month, dia.day, 9 + (i * 5) % 13)
-        m = {"id": f"{prefijo}{i}", "Concepto": concepto, "Fecha": fecha.isoformat(), "Importe": importe,
-             "Tipo": tipo, "Cuenta": [cuenta], "Categoría": [cat] if cat else []}
-        m.update(extra)
-        movs.append(m)
-    return movs
+# Pequeña variación por mes para que no sean todos iguales (determinista)
+_VARIACION = [1.00, 0.85, 1.20, 0.95, 1.10, 0.90]
+_FIJOS = {"Beca prácticas", "Spotify", "Gimnasio", "Cuota portátil", "Retirada cajero", "Bonobús"}
+_SOLO_ALGUNOS_MESES = {"Entradas Betis": {0, 2, 4}, "Ratón inalámbrico": {1}}
 
 
 def _movimientos(hoy):
-    inicio_mes = hoy.replace(day=1)
-    fin_anterior = inicio_mes - timedelta(days=1)
-    inicio_anterior = fin_anterior.replace(day=1)
-    # mes anterior completo + lo que va de mes (como mínimo los primeros movimientos)
-    actuales = _PLANTILLA[: max(4, min(len(_PLANTILLA), hoy.day // 2 + 3))]
-    return (_repartir(inicio_mes, hoy.day, actuales, "a")
-            + _repartir(inicio_anterior, fin_anterior.day, _PLANTILLA, "p"))
+    movs = []
+    for atras in range(5, -1, -1):          # de hace 5 meses hasta el actual
+        inicio = sumar_meses(hoy.replace(day=1), -atras)
+        for i, (concepto, importe, tipo, cuenta, cat, dia, extra) in enumerate(_PLANTILLA):
+            if concepto in _SOLO_ALGUNOS_MESES and atras not in _SOLO_ALGUNOS_MESES[concepto]:
+                continue
+            fecha = inicio.replace(day=min(dia, 28))
+            if fecha > hoy:
+                continue                    # el mes actual solo hasta hoy
+            factor = 1 if concepto in _FIJOS else _VARIACION[(atras + i) % len(_VARIACION)]
+            m = {
+                "id": f"m{atras}-{i}", "emoji": "", "Concepto": concepto,
+                "Fecha": datetime(fecha.year, fecha.month, fecha.day, 9 + (i * 5) % 13).isoformat(),
+                "Importe": round(importe * factor, 2), "Tipo": tipo,
+                "Cuenta": [cuenta], "Cuenta destino": [], "Categoría": [cat] if cat else [],
+                "Suscripción": [], "Deuda": [],
+            }
+            m.update(extra)
+            movs.append(m)
+    return movs
 
 
-def obtener():
-    hoy = date.today()
+def datos_iniciales(hoy=None):
+    hoy = hoy or date.today()
+    hace = lambda meses, dia: sumar_meses(hoy.replace(day=1), -meses).replace(day=dia).isoformat()
     return {
         "cuentas": [
-            {"id": "c1", "emoji": "💳", "Nombre": "Débito", "Tipo": "Banco", "Saldo": 1243.18, "Activa": True},
-            {"id": "c2", "emoji": "💵", "Nombre": "Efectivo", "Tipo": "Efectivo", "Saldo": 85.40, "Activa": True},
-            {"id": "c3", "emoji": "📲", "Nombre": "Bizum / PayPal", "Tipo": "Digital", "Saldo": 32.75, "Activa": True},
+            {"id": "c1", "emoji": "💳", "Nombre": "Débito", "Tipo": "Banco", "Saldo inicial": 1100.0, "Activa": True},
+            {"id": "c2", "emoji": "💵", "Nombre": "Efectivo", "Tipo": "Efectivo", "Saldo inicial": 40.0, "Activa": True},
+            {"id": "c3", "emoji": "📲", "Nombre": "Bizum / PayPal", "Tipo": "Digital", "Saldo inicial": 90.0, "Activa": True},
         ],
         "categorias": [
-            {"id": "k1", "emoji": "🍔", "Nombre": "Comida", "Tipo": "Gasto", "Presupuesto mensual": 150},
-            {"id": "k2", "emoji": "🛒", "Nombre": "Supermercado", "Tipo": "Gasto", "Presupuesto mensual": 120},
-            {"id": "k3", "emoji": "🚌", "Nombre": "Transporte", "Tipo": "Gasto", "Presupuesto mensual": 40},
-            {"id": "k4", "emoji": "🎮", "Nombre": "Ocio", "Tipo": "Gasto", "Presupuesto mensual": 60},
+            {"id": "k1", "emoji": "🍔", "Nombre": "Comida", "Tipo": "Gasto", "Presupuesto mensual": 60},
+            {"id": "k2", "emoji": "🛒", "Nombre": "Supermercado", "Tipo": "Gasto", "Presupuesto mensual": 100},
+            {"id": "k3", "emoji": "🚌", "Nombre": "Transporte", "Tipo": "Gasto", "Presupuesto mensual": 25},
+            {"id": "k4", "emoji": "🎮", "Nombre": "Ocio", "Tipo": "Gasto", "Presupuesto mensual": 50},
             {"id": "k5", "emoji": "📺", "Nombre": "Suscripciones", "Tipo": "Gasto", "Presupuesto mensual": None},
             {"id": "k6", "emoji": "💪", "Nombre": "Gimnasio y salud", "Tipo": "Gasto", "Presupuesto mensual": 35},
             {"id": "k7", "emoji": "💻", "Nombre": "Tecnología", "Tipo": "Gasto", "Presupuesto mensual": None},
             {"id": "k8", "emoji": "💼", "Nombre": "Nómina / prácticas", "Tipo": "Ingreso", "Presupuesto mensual": None},
             {"id": "k9", "emoji": "🤝", "Nombre": "Bizum recibido", "Tipo": "Ingreso", "Presupuesto mensual": None},
         ],
-        "movimientos": _movimientos(hoy),
         "suscripciones": [
-            {"id": "s1", "Nombre": "Spotify", "Importe": 11.99, "Frecuencia": "Mensual", "Activa": True, "Siguiente pago": _dentro(27), "Días restantes": 27},
-            {"id": "s2", "Nombre": "Gimnasio", "Importe": 29.90, "Frecuencia": "Mensual", "Activa": True, "Siguiente pago": _dentro(19), "Días restantes": 19},
-            {"id": "s3", "Nombre": "Netflix", "Importe": 7.99, "Frecuencia": "Mensual", "Activa": True, "Siguiente pago": _dentro(3), "Días restantes": 3},
-            {"id": "s4", "Nombre": "Dominio adriandelpar.com", "Importe": 12.00, "Frecuencia": "Anual", "Activa": True, "Siguiente pago": _dentro(140), "Días restantes": 140},
+            {"id": "s1", "emoji": "", "Nombre": "Spotify", "Importe": 11.99, "Frecuencia": "Mensual",
+             "Primer cobro": hace(5, 3), "Cuenta": ["c1"], "Categoría": ["k5"], "Activa": True},
+            {"id": "s2", "emoji": "", "Nombre": "Gimnasio", "Importe": 29.90, "Frecuencia": "Mensual",
+             "Primer cobro": hace(5, 11), "Cuenta": ["c1"], "Categoría": ["k6"], "Activa": True},
+            {"id": "s3", "emoji": "", "Nombre": "Netflix", "Importe": 7.99, "Frecuencia": "Mensual",
+             "Primer cobro": hace(2, 5), "Cuenta": ["c1"], "Categoría": ["k5"], "Activa": True},
+            {"id": "s4", "emoji": "", "Nombre": "Dominio web", "Importe": 12.00, "Frecuencia": "Anual",
+             "Primer cobro": hace(8, 20), "Cuenta": ["c1"], "Categoría": ["k7"], "Activa": True},
         ],
         "deudas": [
-            {"id": "d1", "Nombre": "Portátil MSI", "Total deuda": 750.0, "Cuota": 62.50, "Nº cuotas": 12, "Total pagado": 312.50, "Pendiente": 437.50, "Nº pagos": 5, "Siguiente pago": _dentro(19), "Días restantes": 19},
+            {"id": "d1", "emoji": "", "Nombre": "Portátil", "Total deuda": 750.0, "Cuota": 62.50, "Nº cuotas": 12,
+             "Primera cuota": hace(5, 14), "Cuenta": ["c1"], "Categoría": ["k7"]},
         ],
-        "generado": datetime.now().isoformat(),
-        "mes": hoy.strftime("%Y-%m"),
+        "movimientos": _movimientos(hoy),
     }

@@ -1,17 +1,21 @@
-"""Cliente mínimo de la API de Notion: solo lectura.
+"""Repositorio sobre la API de Notion (lectura y escritura).
 
-La API devuelve cada propiedad envuelta en su tipo, por ejemplo:
+La API envuelve cada propiedad en su tipo, por ejemplo:
 
     "Importe": {"type": "number", "number": 12.5}
     "Tipo":    {"type": "select", "select": {"name": "Gasto"}}
 
-`aplanar()` lo convierte en un diccionario simple {"Importe": 12.5, "Tipo": "Gasto"},
-que es la misma forma que usan los datos de demo.
+`aplanar()` lo convierte en {"Importe": 12.5, "Tipo": "Gasto"} para leer, y
+`a_propiedades()` hace el camino inverso para escribir, usando esquema.py.
 """
+import threading
 import time
 from datetime import date, datetime
 
 import requests
+
+from .esquema import ENTIDADES
+from .repositorio import NoEncontrado, normalizar
 
 API = "https://api.notion.com/v1"
 VERSION = "2022-06-28"
@@ -28,6 +32,8 @@ DB = {
 class ErrorNotion(Exception):
     pass
 
+
+# ---------- Notion -> diccionario ----------
 
 def _valor(p):
     tipo = p["type"]
@@ -58,7 +64,43 @@ def aplanar(pagina):
     return plano
 
 
-class Cliente:
+# ---------- diccionario -> Notion ----------
+
+def _iso(v):
+    if isinstance(v, (date, datetime)):
+        return v.isoformat()
+    return v or None
+
+
+def a_propiedades(entidad, datos):
+    """Convierte {"Importe": 12.5, "Cuenta": ["id"]...} en el JSON de propiedades de Notion."""
+    props = {}
+    for c in entidad.campos:
+        if c.nombre not in datos:
+            continue
+        v = datos[c.nombre]
+        if c.tipo == "title":
+            props[c.nombre] = {"title": [{"text": {"content": v or ""}}]}
+        elif c.tipo == "number":
+            props[c.nombre] = {"number": None if v in (None, "") else float(v)}
+        elif c.tipo == "select":
+            props[c.nombre] = {"select": {"name": v} if v else None}
+        elif c.tipo in ("date", "datetime"):
+            props[c.nombre] = {"date": {"start": _iso(v)} if v else None}
+        elif c.tipo == "checkbox":
+            props[c.nombre] = {"checkbox": bool(v)}
+        elif c.tipo == "relation":
+            props[c.nombre] = {"relation": [{"id": i} for i in v]}
+    return props
+
+
+def _icono(datos):
+    if "emoji" not in datos:
+        return {}
+    return {"icon": {"type": "emoji", "emoji": datos["emoji"]} if datos["emoji"] else None}
+
+
+class RepoNotion:
     def __init__(self, token, sesion=None, cache_segundos=60):
         self.sesion = sesion or requests.Session()
         self.sesion.headers.update({
@@ -68,6 +110,17 @@ class Cliente:
         })
         self.cache_segundos = cache_segundos
         self._cache = {}
+        self._lock = threading.Lock()
+
+    # --- HTTP ---
+
+    def _pedir(self, metodo, ruta, json=None):
+        r = self.sesion.request(metodo, f"{API}/{ruta}", json=json, timeout=15)
+        if r.status_code == 404:
+            raise NoEncontrado(ruta)
+        if r.status_code != 200:
+            raise ErrorNotion(f"Notion respondió {r.status_code}: {r.text[:300]}")
+        return r.json()
 
     def _query(self, db, filtro=None):
         """Consulta una base de datos entera, siguiendo la paginación (100 por página)."""
@@ -78,35 +131,64 @@ class Cliente:
                 body["filter"] = filtro
             if cursor:
                 body["start_cursor"] = cursor
-            r = self.sesion.post(f"{API}/databases/{db}/query", json=body, timeout=15)
-            if r.status_code != 200:
-                raise ErrorNotion(f"Notion respondió {r.status_code}: {r.text[:300]}")
-            datos = r.json()
+            datos = self._pedir("POST", f"databases/{db}/query", body)
             resultados += [aplanar(p) for p in datos["results"]]
             if not datos.get("has_more"):
                 return resultados
             cursor = datos["next_cursor"]
 
-    def obtener(self, mes=None, refrescar=False):
-        mes = mes or date.today().strftime("%Y-%m")
-        guardado = self._cache.get(mes)
-        if guardado and not refrescar and time.time() - guardado[0] < self.cache_segundos:
-            return guardado[1]
+    def _cacheado(self, clave, funcion):
+        with self._lock:
+            guardado = self._cache.get(clave)
+            if guardado and time.time() - guardado[0] < self.cache_segundos:
+                return guardado[1]
+        valor = funcion()
+        with self._lock:
+            self._cache[clave] = (time.time(), valor)
+        return valor
 
-        a, m = map(int, mes.split("-"))
-        inicio = date(a, m, 1)
-        fin = date(a + (m == 12), m % 12 + 1, 1)
-        datos = {
-            "cuentas": self._query(DB["cuentas"]),
-            "categorias": self._query(DB["categorias"]),
-            "suscripciones": self._query(DB["suscripciones"]),
-            "deudas": self._query(DB["deudas"]),
-            # solo los movimientos del mes que se está viendo
-            "movimientos": self._query(DB["movimientos"], {"and": [
-                {"property": "Fecha", "date": {"on_or_after": inicio.isoformat()}},
-                {"property": "Fecha", "date": {"before": fin.isoformat()}},
-            ]}),
-            "generado": datetime.now().isoformat(),
-        }
-        self._cache[mes] = (time.time(), datos)
-        return datos
+    def vaciar_cache(self):
+        with self._lock:
+            self._cache.clear()
+
+    # --- lectura ---
+
+    def listar(self, clave):
+        return self._cacheado(clave, lambda: self._query(DB[clave]))
+
+    def movimientos(self, desde=None, hasta=None):
+        filtros = []
+        if desde:
+            filtros.append({"property": "Fecha", "date": {"on_or_after": desde.isoformat()}})
+        if hasta:
+            filtros.append({"property": "Fecha", "date": {"before": hasta.isoformat()}})
+        filtro = {"and": filtros} if filtros else None
+        return self._cacheado(("movimientos", desde, hasta), lambda: self._query(DB["movimientos"], filtro))
+
+    def obtener(self, clave, id_):
+        return aplanar(self._pedir("GET", f"pages/{id_}"))
+
+    # --- escritura (cada cambio vacía la caché para que se vea al momento) ---
+
+    def crear(self, clave, datos):
+        entidad = ENTIDADES[clave]
+        datos = normalizar(entidad, datos)
+        body = {"parent": {"database_id": DB[clave]}, "properties": a_propiedades(entidad, datos)}
+        body.update(_icono(datos))
+        pagina = self._pedir("POST", "pages", body)
+        self.vaciar_cache()
+        return aplanar(pagina)
+
+    def actualizar(self, clave, id_, datos):
+        entidad = ENTIDADES[clave]
+        datos = normalizar(entidad, datos)
+        body = {"properties": a_propiedades(entidad, datos)}
+        body.update(_icono(datos))
+        pagina = self._pedir("PATCH", f"pages/{id_}", body)
+        self.vaciar_cache()
+        return aplanar(pagina)
+
+    def archivar(self, clave, id_):
+        # En Notion "archivar" = mover a la papelera: se puede recuperar desde allí
+        self._pedir("PATCH", f"pages/{id_}", {"archived": True})
+        self.vaciar_cache()
