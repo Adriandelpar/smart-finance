@@ -79,9 +79,11 @@ Abre <http://localhost:5000>.
 - Todos los formularios llevan un **token CSRF**. Sin él, cualquier página que visitaras podría enviar en secreto un formulario a `localhost:8000` (tu navegador sí llega ahí) y borrarte movimientos. Con el token, la web solo acepta formularios que ella misma ha generado.
 - Si quieres usarla desde el móvil en casa, cambia el puerto a `"8000:8000"`, entra con la IP del portátil y **pon `APP_PASSWORD`** en el `.env`.
 
-## Verlo fuera de casa (opcional y gratis)
+## Verlo fuera de casa
 
-Fuera de casa, la forma más simple de ver tus datos es la **app de Notion**, que ya enseña todo el panel de Smart Finance.
+La forma recomendada es **Tailscale**, con la web instalada en el móvil como app: ver [web-en-el-movil.md](web-en-el-movil.md).
+
+También puedes usar la **app de Notion**, que ya enseña todo el panel de Smart Finance.
 
 Si algún día quieres esta web en internet sin pagar servidor, la misma imagen de Docker se puede desplegar en un hosting con plan gratuito, como [Render](https://render.com/):
 
@@ -108,4 +110,4 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-46 tests: las fórmulas replicadas (saldos, siguiente pago, cuotas), la traducción a y desde el JSON de Notion, el repositorio de Notion con la red simulada (paginación, caché que se vacía al escribir, archivar), la validación de formularios, filtros y agrupaciones, y las rutas (crear, editar y eliminar, CSRF, CSV, login). La CI además construye la imagen, la arranca y comprueba que responde.
+48 tests: las fórmulas replicadas (saldos, siguiente pago, cuotas), la traducción a y desde el JSON de Notion, el repositorio de Notion con la red simulada (paginación, caché que se vacía al escribir, archivar), la validación de formularios, filtros y agrupaciones, y las rutas (crear, editar y eliminar, CSRF, CSV, login). La CI además construye la imagen, la arranca y comprueba que responde.

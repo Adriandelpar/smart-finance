@@ -387,3 +387,18 @@ def test_error_de_notion_muestra_ayuda(app):
     app.repo = RepoRoto()
     r = app.test_client().get("/")
     assert r.status_code == 502 and "Conexiones" in r.data.decode()
+
+
+def test_manifiesto_pwa(cliente):
+    r = cliente.get("/manifest.webmanifest")
+    assert r.mimetype == "application/manifest+json"
+    m = r.get_json(force=True)
+    assert m["display"] == "standalone" and m["start_url"] == "/"
+    for icono in m["icons"]:
+        assert cliente.get(icono["src"]).status_code == 200
+    assert 'rel="manifest"' in cliente.get("/").data.decode()
+
+
+def test_manifiesto_accesible_sin_login():
+    c = create_app({"NOTION_TOKEN": "", "APP_PASSWORD": "secreta"}).test_client()
+    assert c.get("/manifest.webmanifest").status_code == 200

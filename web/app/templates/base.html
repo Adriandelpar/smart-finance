@@ -5,7 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}Smart Finance{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <link rel="icon" href="{{ url_for('static', filename='iconos/icono-192.png') }}">
+  {# Para instalarla en el móvil como app (PWA) #}
+  <link rel="manifest" href="{{ url_for('manifiesto') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='iconos/apple-touch-icon.png') }}">
+  <meta name="theme-color" content="#e8edf1" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121b29" media="(prefers-color-scheme: dark)">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Finanzas">
 </head>
 <body>
 {% block pagina %}

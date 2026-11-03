@@ -3,6 +3,7 @@ import csv
 import hashlib
 import hmac
 import io
+import json
 import os
 import re
 import secrets
@@ -56,7 +57,7 @@ def create_app(config=None):
 
     @app.before_request
     def proteger():
-        if app.config["APP_PASSWORD"] and request.endpoint not in ("login", "salud", "static"):
+        if app.config["APP_PASSWORD"] and request.endpoint not in ("login", "salud", "static", "manifiesto"):
             if not session.get("dentro"):
                 return redirect(url_for("login", siguiente=request.full_path))
         if request.method == "POST":
@@ -252,6 +253,32 @@ def create_app(config=None):
         nombre = registro.get(ENTIDADES[clave].titulo) or ENTIDADES[clave].singular
         flash(f"Eliminado «{nombre}»." + ("" if app.config["MODO_DEMO"] else " Puedes recuperarlo desde la papelera de Notion."))
         return redirect(volver(url_for("movimientos") if clave == "movimientos" else url_for("lista", clave=clave)))
+
+    @app.get("/manifest.webmanifest")
+    def manifiesto():
+        """Lo que lee el móvil para instalar la web como app (PWA)."""
+        datos = {
+            "name": "Smart Finance",
+            "short_name": "Finanzas",
+            "description": "Gastos, ingresos, presupuestos y suscripciones",
+            "lang": "es",
+            "start_url": "/",
+            "scope": "/",
+            "display": "standalone",          # sin barra del navegador, como una app
+            "background_color": "#e8edf1",
+            "theme_color": "#16243a",
+            "icons": [
+                {"src": url_for("static", filename="iconos/icono-192.png"), "sizes": "192x192", "type": "image/png"},
+                {"src": url_for("static", filename="iconos/icono-512.png"), "sizes": "512x512", "type": "image/png"},
+                {"src": url_for("static", filename="iconos/icono-maskable-512.png"), "sizes": "512x512",
+                 "type": "image/png", "purpose": "maskable"},
+            ],
+            "shortcuts": [
+                {"name": "Añadir movimiento", "url": "/movimientos/nuevo"},
+                {"name": "Movimientos", "url": "/movimientos"},
+            ],
+        }
+        return Response(json.dumps(datos, ensure_ascii=False), mimetype="application/manifest+json")
 
     @app.get("/salud")
     def salud():

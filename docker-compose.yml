@@ -8,6 +8,7 @@ services:
       - path: .env
         required: false     # sin .env arranca en modo demo
     ports:
-      # Solo escucha en tu propio ordenador: nadie de tu red puede entrar.
-      # Para abrirlo a otros dispositivos de casa, cambia a "8000:8000".
-      - "127.0.0.1:8000:8000"
+      # Por defecto solo escucha en tu propio ordenador: nadie más puede entrar.
+      # Para usarla desde el móvil, pon ESCUCHAR_EN en el .env (ver .env.example)
+      # y define también APP_PASSWORD.
+      - "${ESCUCHAR_EN:-127.0.0.1}:8000:8000"

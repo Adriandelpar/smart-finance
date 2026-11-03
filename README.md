@@ -55,6 +55,10 @@ Y abre <http://localhost:8000>. Sin token arranca con datos de ejemplo (editable
 - **Movimientos**: filtros por periodo, tipo, cuenta, categoría y texto; agrupados por mes, día, cuenta, categoría o tipo con subtotales; exportar a CSV.
 - **Añadir, editar y eliminar** movimientos, cuentas, categorías, suscripciones y deudas.
 
+### En el móvil, como app
+
+La web es instalable (PWA). Con [Tailscale](docs/web-en-el-movil.md) se abre desde el móvil en cualquier sitio, por HTTPS y sin abrir puertos del router, y se instala con icono propio y a pantalla completa.
+
 ## Estructura
 
 ```
@@ -69,7 +73,7 @@ web/app/templates, static    HTML y CSS
 web/tests/                   Tests de la web (pytest)
 web/Dockerfile               Imagen con gunicorn y usuario sin privilegios
 docker-compose.yml           Arranque en local, solo en 127.0.0.1
-docs/                        Modelo de datos, instalación en Android y guía de la web
+docs/                        Modelo de datos, instalación en Android, guía de la web y de la web en el móvil
 .github/workflows/ci.yml     Tests, build del contenedor y detección de tokens
 ```
 
@@ -77,7 +81,7 @@ docs/                        Modelo de datos, instalación en Android y guía de
 
 ```bash
 npm test                          # atajo: 8 tests, sin dependencias (node:test)
-cd web && pytest                  # web: 46 tests
+cd web && pytest                  # web: 48 tests
 docker compose up -d --build      # panel en http://localhost:8000
 ```
 
@@ -98,7 +102,7 @@ Los tests ejecutan el script real dentro de un sandbox de Node (`vm`), sustituye
 - [x] Gráfico de ingresos y gastos de los últimos 12 meses
 - [ ] Importar movimientos desde el CSV del banco
 - [ ] Publicarlo gratis (Render) para verlo fuera de casa
-- [ ] Usar el panel también en el móvil como PWA
+- [x] Instalable en el móvil como app (PWA), accesible desde fuera de casa con Tailscale
 
 ## Autoría
 
