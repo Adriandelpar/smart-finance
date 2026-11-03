@@ -5,60 +5,73 @@ La web corre en el portátil, así que el móvil tiene que poder llegar hasta é
 ## Cómo funciona
 
 ```
-Móvil ──(red privada de Tailscale, cifrada con WireGuard)──► Portátil
-https://atlas.xxxx.ts.net                                  tailscale serve
-                                                               │  (hace de proxy inverso)
-                                                               ▼
-                                                     127.0.0.1:8000 (Docker)
+Móvil ──(tu red de Tailscale, cifrada con WireGuard)──► contenedor "finanzas" (Tailscale)
+https://finanzas.xxxx.ts.net                                │  proxy inverso con HTTPS
+                                                            ▼  por la red interna de Docker
+                                                      contenedor "web" (Flask)
 ```
 
-- Tailscale crea una red privada entre tus dispositivos, como si estuvieran en la misma wifi aunque estén en ciudades distintas. Solo entran los dispositivos que hayas iniciado con tu cuenta.
-- `tailscale serve` es un proxy inverso (como el nginx de las prácticas): recibe HTTPS en el portátil y se lo pasa a la web en `127.0.0.1:8000`. Tailscale pone el certificado.
-- Docker sigue escuchando **solo en 127.0.0.1**: nada cambia en `docker-compose.yml` y nadie de tu wifi ni de internet llega a la web.
+- Tailscale crea una red privada entre tus dispositivos, como si estuvieran en la misma wifi aunque estén en ciudades distintas. Solo entran los dispositivos que inicien sesión con tu cuenta.
+- La web tiene **su propio Tailscale dentro de Docker** (servicio `tailscale` de `docker-compose.yml`). Entra en tu red como un dispositivo más llamado `finanzas`, saca el certificado HTTPS y hace de proxy inverso hacia la web, como el nginx de las prácticas.
+- No depende del Tailscale que tenga instalado el portátil. Si el portátil ya está en otra red (por ejemplo, la Headscale del instituto), las dos conviven: son procesos distintos con identidades distintas.
 - El HTTPS no es un capricho: Android solo instala una web como app (pantalla completa, con icono) si va por HTTPS.
 
-Requisito: el portátil tiene que estar encendido. Para meter gastos sigue sirviendo el botón Finanzas, que funciona aunque el portátil esté apagado.
+Requisito: el portátil tiene que estar encendido con Docker en marcha. Para meter gastos sigue sirviendo el botón Finanzas, que funciona aunque el portátil esté apagado.
 
-## 1. Tailscale en el portátil (Debian)
+## 1. Prepara tu red de Tailscale (una sola vez)
 
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-sudo tailscale up          # abre un enlace para iniciar sesión (Google o GitHub)
-tailscale ip -4            # comprueba: una IP que empieza por 100.
-```
+1. Entra en <https://login.tailscale.com> con tu cuenta personal.
+2. **Settings → Keys → Generate auth key**. Déjalo *Reusable* desactivado y caducidad por defecto. Copia la clave (`tskey-auth-…`). Es una contraseña: no se comparte ni se sube a git.
 
-## 2. Tailscale en el móvil
-
-Instala **Tailscale** desde Google Play e inicia sesión **con la misma cuenta**. Actívalo. En la lista deberías ver `atlas`.
-
-## 3. Publicar la web en tu red de Tailscale
-
-Con la web ya arrancada (`docker compose up -d`):
+## 2. Configúralo en el `.env` del portátil
 
 ```bash
-sudo tailscale serve --bg 8000
+COMPOSE_PROFILES=tailscale
+TS_AUTHKEY=tskey-auth-...
 ```
 
-- La primera vez puede decir que HTTPS no está activado en tu red y darte un enlace: ábrelo, actívalo y repite el comando.
-- Te dirá la dirección, del estilo `https://atlas.tail1234.ts.net`.
-- `--bg` lo deja configurado de forma permanente: sobrevive a reinicios.
-
-Comandos útiles:
+`COMPOSE_PROFILES=tailscale` hace que `docker compose up -d` arranque también el contenedor de Tailscale.
 
 ```bash
-tailscale serve status     # qué se está publicando
-sudo tailscale serve reset # dejar de publicarlo
+docker compose up -d
+docker compose logs -f tailscale     # espera a ver que se ha conectado; Ctrl+C para salir
 ```
 
-## 4. Instalarla como app en el móvil
+La clave solo se usa la primera vez: la identidad del dispositivo se guarda en el volumen `tailscale-estado`, así que sobrevive a reinicios.
 
-1. Abre esa dirección `https://atlas….ts.net` en **Chrome** del móvil, con Tailscale activado.
-2. Menú `⋮` → **Instalar aplicación** (o **Añadir a pantalla de inicio**).
-3. Aparece el icono **Finanzas**. Se abre a pantalla completa, sin la barra del navegador. Manteniendo pulsado el icono salen los accesos directos "Añadir movimiento" y "Movimientos".
+## 3. Activa HTTPS en tu red
+
+Ahora que tu red tiene su primer dispositivo (`finanzas`), en <https://login.tailscale.com/admin/dns>:
+
+- **MagicDNS**: activado.
+- **HTTPS Certificates**: **Enable HTTPS**.
+
+Después reinicia el contenedor para que pida el certificado:
+
+```bash
+docker compose restart tailscale
+```
+
+En la pestaña **Machines** verás `finanzas` y su nombre completo, del estilo `finanzas.tail1234.ts.net`.
+
+## 4. Instálala como app en el móvil
+
+1. Instala **Tailscale** desde Google Play e inicia sesión con **tu cuenta personal**. Si en el móvil también usas la red del instituto, la app permite tener las dos cuentas y cambiar entre ellas.
+2. Con Tailscale activado, abre `https://finanzas.tail1234.ts.net` en **Chrome**. La primera vez tarda unos segundos: Tailscale está pidiendo el certificado a Let's Encrypt.
+3. Menú `⋮` → **Instalar aplicación**. Aparece el icono **Finanzas**, que se abre a pantalla completa. Manteniéndolo pulsado salen los accesos directos "Añadir movimiento" y "Movimientos".
 
 ## ¿Y la contraseña?
 
 Con Tailscale solo llegan tus dispositivos, así que `APP_PASSWORD` es opcional. Si la pones en el `.env`, la web la pedirá una vez y recordará la sesión.
+
+## Problemas típicos
+
+| Síntoma | Causa |
+|---|---|
+| `docker compose logs tailscale` pide iniciar sesión | Falta `TS_AUTHKEY` o ha caducado: genera otra y `docker compose up -d` |
+| La dirección no carga | Tailscale no está activado en el móvil, o el móvil está en otra cuenta |
+| Error de certificado | Falta activar *HTTPS Certificates* en el panel de DNS |
+| `can't change --login-server` al hacer `tailscale up` en el portátil | El Tailscale del portátil está en otra red (p. ej. la del instituto). No hace falta tocarlo: el contenedor tiene el suyo |
 
 ## Alternativa sin Tailscale: solo en la wifi de casa
 

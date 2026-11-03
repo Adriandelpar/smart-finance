@@ -57,7 +57,7 @@ Y abre <http://localhost:8000>. Sin token arranca con datos de ejemplo (editable
 
 ### En el móvil, como app
 
-La web es instalable (PWA). Con [Tailscale](docs/web-en-el-movil.md) se abre desde el móvil en cualquier sitio, por HTTPS y sin abrir puertos del router, y se instala con icono propio y a pantalla completa.
+La web es instalable (PWA). Un contenedor de [Tailscale](docs/web-en-el-movil.md) junto a la web (patrón *sidecar*) la publica en tu red privada de Tailscale con HTTPS, sin abrir puertos del router y sin tocar el Tailscale que ya tenga el portátil. Desde el móvil se abre en cualquier sitio y se instala con icono propio y a pantalla completa.
 
 ## Estructura
 
@@ -72,7 +72,8 @@ web/app/resumen.py           Cálculos, filtros y agrupaciones (funciones puras)
 web/app/templates, static    HTML y CSS
 web/tests/                   Tests de la web (pytest)
 web/Dockerfile               Imagen con gunicorn y usuario sin privilegios
-docker-compose.yml           Arranque en local, solo en 127.0.0.1
+docker-compose.yml           Web en local (solo 127.0.0.1) + Tailscale opcional (perfil tailscale)
+tailscale/serve.json         Proxy HTTPS de Tailscale hacia la web
 docs/                        Modelo de datos, instalación en Android, guía de la web y de la web en el móvil
 .github/workflows/ci.yml     Tests, build del contenedor y detección de tokens
 ```
@@ -92,7 +93,7 @@ Los tests ejecutan el script real dentro de un sandbox de Node (`vm`), sustituye
 - El token de Notion vive solo en una variable de HTTP Shortcuts del móvil y en el `.env` del portátil. **Nunca** está en el código.
 - La web escucha solo en `127.0.0.1`, protege todos los formularios con token CSRF y tiene contraseña opcional (`APP_PASSWORD`) para el día que se publique.
 - La integración de Notion solo tiene acceso a la página Smart Finance.
-- La CI falla si detecta algo con pinta de token (`ntn_…`) en el repositorio.
+- La CI falla si detecta algo con pinta de token de Notion (`ntn_…`) o clave de Tailscale (`tskey-…`) en el repositorio.
 
 ## Hoja de ruta
 

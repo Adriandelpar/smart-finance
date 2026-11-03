@@ -9,6 +9,29 @@ services:
         required: false     # sin .env arranca en modo demo
     ports:
       # Por defecto solo escucha en tu propio ordenador: nadie más puede entrar.
-      # Para usarla desde el móvil, pon ESCUCHAR_EN en el .env (ver .env.example)
-      # y define también APP_PASSWORD.
+      # Para usarla desde el móvil, mejor el servicio tailscale de abajo.
       - "${ESCUCHAR_EN:-127.0.0.1}:8000:8000"
+
+  # Opcional: da a la web su propio Tailscale para abrirla desde el móvil en
+  # cualquier sitio, por HTTPS. Entra en TU red de Tailscale como el dispositivo
+  # "finanzas", aparte del Tailscale que tenga el portátil (p. ej. el del instituto).
+  # Se activa con COMPOSE_PROFILES=tailscale y TS_AUTHKEY en el .env.
+  tailscale:
+    image: tailscale/tailscale:stable
+    container_name: smart-finance-tailscale
+    hostname: finanzas                 # la web quedará en https://finanzas.<tu-red>.ts.net
+    profiles: ["tailscale"]
+    restart: unless-stopped
+    environment:
+      - TS_AUTHKEY=${TS_AUTHKEY:-}
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true              # sin tocar la red del portátil ni pedir permisos especiales
+      - TS_SERVE_CONFIG=/config/serve.json
+    volumes:
+      - tailscale-estado:/var/lib/tailscale   # recuerda la identidad: el auth key solo se usa la primera vez
+      - ./tailscale/serve.json:/config/serve.json:ro
+    depends_on:
+      - web
+
+volumes:
+  tailscale-estado:

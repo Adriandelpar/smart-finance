@@ -50,6 +50,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Comprobar la configuración con el perfil de Tailscale
+        run: COMPOSE_PROFILES=tailscale docker compose config -q
+
       - name: Construir y arrancar el contenedor
         run: docker compose up -d --build --wait
 
@@ -70,7 +73,7 @@ jobs:
 
       - name: Comprobar que no se ha subido ningún token de Notion
         run: |
-          if grep -rnE '(ntn_|secret_)[A-Za-z0-9]{20,}' --exclude-dir=.git .; then
-            echo "::error::Hay un token de Notion en el repositorio"
+          if grep -rnE '(ntn_|secret_|tskey-[a-z]+-)[A-Za-z0-9]{16,}' --exclude-dir=.git .; then
+            echo "::error::Hay un token de Notion o una clave de Tailscale en el repositorio"
             exit 1
           fi
