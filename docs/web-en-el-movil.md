@@ -44,6 +44,7 @@ La clave solo se usa la primera vez: la identidad del dispositivo se guarda en e
 Ahora que tu red tiene su primer dispositivo (`finanzas`), en <https://login.tailscale.com/admin/dns>:
 
 - **MagicDNS**: activado.
+- **Nameservers → Global nameservers**: añade Cloudflare y Google y activa **Override DNS servers**. Así Tailscale resuelve los nombres de tu red y manda el resto de internet a esos servidores (si no, el móvil puede dejar de encontrar `api.notion.com`).
 - **HTTPS Certificates**: **Enable HTTPS**.
 
 Después reinicia el contenedor para que pida el certificado:
@@ -71,6 +72,7 @@ Con Tailscale solo llegan tus dispositivos, así que `APP_PASSWORD` es opcional.
 | `docker compose logs tailscale` pide iniciar sesión | Falta `TS_AUTHKEY` o ha caducado: genera otra y `docker compose up -d` |
 | La dirección no carga | Tailscale no está activado en el móvil, o el móvil está en otra cuenta |
 | Error de certificado | Falta activar *HTTPS Certificates* en el panel de DNS |
+| El botón Finanzas da `Unable to resolve host "api.notion.com"` con Tailscale activado | El **DNS privado** de Android (Ajustes → Conexión y compartir) está fijado a un proveedor y choca con el DNS de Tailscale: ponlo en *Automático* o *Desactivado*. En el panel de Tailscale (DNS) tienen que estar los nameservers globales (Cloudflare/Google) con **Override DNS servers** activado. No desactives *Use Tailscale DNS* en el móvil: sin él no se resuelve `finanzas.….ts.net` |
 | `can't change --login-server` al hacer `tailscale up` en el portátil | El Tailscale del portátil está en otra red (p. ej. la del instituto). No hace falta tocarlo: el contenedor tiene el suyo |
 
 ## Alternativa sin Tailscale: solo en la wifi de casa
