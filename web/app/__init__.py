@@ -273,10 +273,6 @@ def create_app(config=None):
                 {"src": url_for("static", filename="iconos/icono-maskable-512.png"), "sizes": "512x512",
                  "type": "image/png", "purpose": "maskable"},
             ],
-            "shortcuts": [
-                {"name": "Añadir movimiento", "url": "/movimientos/nuevo"},
-                {"name": "Movimientos", "url": "/movimientos"},
-            ],
         }
         return Response(json.dumps(datos, ensure_ascii=False), mimetype="application/manifest+json")
 

@@ -58,7 +58,7 @@ En la pestaña **Machines** verás `finanzas` y su nombre completo, del estilo `
 
 1. Instala **Tailscale** desde Google Play e inicia sesión con **tu cuenta personal**. Si en el móvil también usas la red del instituto, la app permite tener las dos cuentas y cambiar entre ellas.
 2. Con Tailscale activado, abre `https://finanzas.tail1234.ts.net` en **Chrome**. La primera vez tarda unos segundos: Tailscale está pidiendo el certificado a Let's Encrypt.
-3. Menú `⋮` → **Instalar aplicación**. Aparece el icono **Finanzas**, que se abre a pantalla completa. Manteniéndolo pulsado salen los accesos directos "Añadir movimiento" y "Movimientos".
+3. Menú `⋮` → **Añadir a pantalla de inicio** → **Instalar** (no "Crear acceso directo", que solo abre la web dentro de Chrome). Aparece el icono **Finanzas**, que se abre a pantalla completa.
 
 ## ¿Y la contraseña?
 
